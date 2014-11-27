@@ -1,0 +1,64 @@
+#!/bin/sh
+
+SCRIPT=$0
+
+# SCRIPT may be an arbitrarily deep series of symlinks. Loop until we have the concrete path.
+while [ -h "$SCRIPT" ] ; do
+  ls=$(ls -ld "$SCRIPT")
+  # Drop everything prior to ->
+  link=$(expr "$ls" : '.*-> \(.*\)$')
+  if expr "$link" : '/.*' > /dev/null; then
+    SCRIPT="$link"
+  else
+    SCRIPT=$(dirname "$SCRIPT")/"$link"
+  fi
+done
+
+DIR=/opt/kibana
+
+if [ -x "${JAVA_HOME}/bin/java" ]; then
+  JAVA="${JAVA_HOME}/bin/java"
+else
+  JAVA=$(which java)
+fi
+
+if [ ! -x "${JAVA}" ]; then
+  echo "Could not find any executable Java binary. Please install Java in your PATH or set JAVA_HOME"
+  exit 1
+fi
+>&2 echo "The Kibana Backend is starting up... be patient"
+
+JAVA_OPTS="-Xmx512m $JAVA_OPTS"
+
+# Clear gem paths so that we only use the gems inside the kibana.jar
+export GEM_HOME=
+export GEM_PATH=
+
+KIBANA_CONFIG_FILE="/data/kibana.yml"
+
+# Download default conf if none present
+if [ ! -f $KIBANA_CONFIG_FILE ]; then
+
+    echo "Setting up default configuration file ..."
+    cp /app/kibana.yml $KIBANA_CONFIG_FILE
+
+    # This magic will replace ES_HOST and ES_PORT in your logstash.conf
+    # file if they exist with the IP and port dynamically generated
+    # by docker. Take a look at the readme for more details.
+    #
+    # Note: Don't use this on a file mounting using a docker
+    # volume, as the inode switch will cause `device or resource busy`
+    # Instead download your file as normal
+    sed -e "s/ES_HOST/${ES_PORT_9200_TCP_ADDR}/g" \
+        -e "s/ES_PORT/${ES_PORT_9200_TCP_PORT}/g" \
+        -i $KIBANA_CONFIG_FILE
+fi
+
+# shellcheck disable=SC2086
+KIBANA_VERSION=4.0.0-BETA2 \
+CONFIG_PATH=/data/kibana.yml \
+PLUGINS_FOLDER=${DIR}/plugins \
+RACK_ENV=production \
+exec "${JAVA}" \
+$JAVA_OPTS \
+-jar "${DIR}/lib/kibana.jar" "$@"
