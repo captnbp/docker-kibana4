@@ -8,7 +8,6 @@ If you want to link to container running Elasticsearch rather than use the embed
 
     $ docker run -d \
       -v *yourKibanaConfFolder*:/data \
-      -v *yourLogFolder
       --link <your_es_container_name>:es \
       -p 5601:5601 \
       captnbp/docker-kibana4
@@ -21,7 +20,6 @@ If you are using an external Elasticsearch server rather than the embedded serve
 
     $ docker run -d \
       -v *yourKibanaConfFolder*:/data \
-      -v *yourLogFolder
       -p 5601:5601 \
       captnbp/docker-kibana
 
